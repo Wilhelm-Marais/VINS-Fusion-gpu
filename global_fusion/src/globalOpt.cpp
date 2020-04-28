@@ -119,17 +119,28 @@ void GlobalOptimization::inputCompass(double t, Eigen::Vector3d mag_field, doubl
 }
 
 void GlobalOptimization::inputPressure(double t, double pressure, double pressure_var)
-{
+{   
+    double density = 9.80638;
 	if(!initPress){
 		p_0 = pressure;
-		initPress = true;
+		if(localPoseMap.size() > 0){
+            initPress = true;
+            double d_0 = localPoseMap.begin()->second[2];
+            p_0 += d_0 * density; 
+            printf("p_0 intialise to %f at intial depth %f at intial pressure %f \n",p_0,d_0,pressure);
+        }
 	}
-	double density = 9.80638;
-	depth = pressure_to_depth(pressure, density, p_0);
-    //printf("depth: %f \n", depth);
-	vector<double> tmp{-depth, pressure_var*0.000001/density};
-	depthMap[t] = tmp;
-	newDepth = true;
+    double var_mult = 1;
+    if(initPress){
+        var_mult = 0.000001;
+    }
+
+	    depth = pressure_to_depth(pressure, density, p_0);
+        //printf("depth: %f \n", depth);
+	    vector<double> tmp{-depth, pressure_var*var_mult/density};
+	    depthMap[t] = tmp;
+	    newDepth = true;
+    //}
 }
 
 
@@ -175,8 +186,9 @@ void GlobalOptimization::optimize()
                 problem.AddParameterBlock(t_array[i], 3);
             }
 
-            map<double, vector<double>>::iterator iterVIO, iterVIONext, iterGPS, iterDepth, iterCompass;
+            map<double, vector<double>>::iterator iterVIO, iterVIONext, iterGPS, iterDepth, iterDepthLower, iterDepthUpper, iterCompass;
             int i = 0;
+            int num_depth = 0;
             for (iterVIO = localPoseMap.begin(); iterVIO != localPoseMap.end(); iterVIO++, i++)
             {
                 //vio factor
@@ -199,7 +211,7 @@ void GlobalOptimization::optimize()
 
                     ceres::CostFunction* vio_function = RelativeRTError::Create(iPj.x(), iPj.y(), iPj.z(),
                                                                                 iQj.w(), iQj.x(), iQj.y(), iQj.z(),
-                                                                                0.1, 0.01);
+                                                                                0.1, 0.0001);
                     problem.AddResidualBlock(vio_function, NULL, q_array[i], t_array[i], q_array[i+1], t_array[i+1]);
                 }
                 if(newGPS)
@@ -221,20 +233,35 @@ void GlobalOptimization::optimize()
 					//depth factor
 					double t = iterVIO->first;
 					//printf("depth factor! \n");
-                    iterDepth = depthMap.find(t);
-					if (iterDepth != depthMap.end())
-					{   
-                        //printf("line 211 \n");
-                        ceres::CostFunction* depth_function = DepthError::Create(iterDepth->second[0], iterDepth->second[1]);
-                        //printf("inverse weight %f \n", iterGPS->second[3]);
+                    //iterDepth = depthMap.find(t);
+                    iterDepthLower = depthMap.lower_bound(t);
+                    iterDepthUpper = depthMap.upper_bound(t);
+                    if(iterDepthLower != depthMap.end()){
+                        if(iterDepthLower == iterDepthUpper && iterDepthLower != depthMap.begin()){
+                            iterDepthLower--;
+                        }
+                        //linearly interpolate
+                        double dt_total = iterDepthUpper->first - iterDepthLower->first;
+                        double dt_lower = t - iterDepthLower->first;
+                        double interpFactor;
+                        if(dt_total > 0.001){
+                            interpFactor = dt_lower/dt_total;
+                        } else {
+                            interpFactor = 0.0;
+                        }
+                        double depthInterp = (1 - interpFactor)*iterDepthLower->second[0] + interpFactor* iterDepthUpper->second[0]; 
+                        
+                        ceres::CostFunction* depth_function = DepthError::Create(depthInterp, iterDepthLower->second[1]);
                         problem.AddResidualBlock(depth_function, loss_function, t_array[i]);
-			
-					}
+                        num_depth++;
+                    }			
                     
             	}
 			}
             newGPS = false;
             newDepth = false;
+            printf("num_depth: %d \n", depthMap.size());
+            printf("num odom: %d \n", length);
             newCompass = false;
             //mPoseMap.unlock();
             ceres::Solve(options, &problem, &summary);
