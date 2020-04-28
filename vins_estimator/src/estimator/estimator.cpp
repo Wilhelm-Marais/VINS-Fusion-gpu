@@ -98,6 +98,28 @@ void Estimator::inputIMU(double t, const Vector3d &linearAcceleration, const Vec
     if (solver_flag == NON_LINEAR)
         pubLatestOdometry(latest_P, latest_Q, latest_V, t);
 }
+/*
+double Estimator::pressure_to_depth(double pressure, double density, double p_0)
+{
+    double depth = (pressure- p_0)/density;
+    return depth;
+}
+*/
+/*
+void Estimator::inputPressure(double t, double pressure, double pressure_var)
+{
+    if(!initPress){
+        p_0 = pressure;
+        initPress = true;
+    }
+    double density = 9.80638;
+    depth = pressure_to_depth(pressure, density, p_0);
+    //printf("depth: %f \n", depth);
+    //vector<double> tmp{-depth, pressure_var*0.000001/density};
+    //depthMap[t] = tmp;
+    newDepth = true;
+}
+*/
 
 void Estimator::inputFeature(double t, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &featureFrame)
 {
@@ -991,7 +1013,18 @@ void Estimator::optimization()
             problem.AddResidualBlock(imu_factor, NULL, para_Pose[i], para_SpeedBias[i], para_Pose[j], para_SpeedBias[j]);
         }
     }
+    /* 
+    if(USE_PRESSURE)
+    {      
+        for (int i = 0; i < frame_count; i++)
+        {
+            int j = i + 1;
+            IMUFactor* imu_factor = new IMUFactor(pre_integrations[j]);
+            problem.AddResidualBlock(imu_factor, NULL, para_Pose[i], para_SpeedBias[i], para_Pose[j], para_SpeedBias[j]);
+        }
 
+    }
+    */
     int f_m_cnt = 0;
     int feature_index = -1;
     for (auto &it_per_id : f_manager.feature)

@@ -20,7 +20,7 @@
 #include "estimator/estimator.h"
 #include "estimator/parameters.h"
 #include "utility/visualization.h"
-
+#include <sensor_msgs/FluidPressure.h>
 Estimator estimator;
 
 queue<sensor_msgs::ImuConstPtr> imu_buf;
@@ -145,7 +145,17 @@ void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
     estimator.inputIMU(t, acc, gyr);
     return;
 }
+/*
+void pressure_callback(const sensor_msgs::FluidPressureConstPtr &pressure_msg)
+{
+    //printf("pressure callback! \n");
+    double t = pressure_msg->header.stamp.toSec();
+    double pressure = pressure_msg->fluid_pressure;
+    double pressure_var = pressure_msg->variance;
+    estimator.inputPressure(t, pressure, pressure_var);
+}
 
+*/
 
 void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
 {
@@ -228,7 +238,7 @@ int main(int argc, char **argv)
     ros::Subscriber sub_feature = n.subscribe("/feature_tracker/feature", 2000, feature_callback);
     ros::Subscriber sub_img0 = n.subscribe(IMAGE0_TOPIC, 100, img0_callback);
     ros::Subscriber sub_img1 = n.subscribe(IMAGE1_TOPIC, 100, img1_callback);
-
+    //ros::Subscriber depth_sub = n.subscribe(PRESSURE_TOPIC, 2000, pressure_callback);
     std::thread sync_thread{sync_process};
     ros::spin();
 

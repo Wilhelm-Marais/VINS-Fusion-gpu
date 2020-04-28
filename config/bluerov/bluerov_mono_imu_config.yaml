@@ -10,6 +10,9 @@ use_pressure: 1
 
 imu_topic: "/bluerov2/imu"
 image0_topic: "/bluerov2/bluerov2/cameraleft/camera_image"
+pressure_topic: "/bluerov2/pressure"
+gps_topic: "/gps"
+compass_topic: "/bluerov2/compass"
 output_path: "/home/nvidia/vins/output/"
 
 cam0_calib: "cam0_pinhole.yaml"
