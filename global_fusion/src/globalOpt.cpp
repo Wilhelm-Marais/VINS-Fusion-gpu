@@ -54,6 +54,10 @@ void GlobalOptimization::inputOdom(double t, Eigen::Vector3d OdomP, Eigen::Quate
     vector<double> localPose{OdomP.x(), OdomP.y(), OdomP.z(), 
     					     OdomQ.w(), OdomQ.x(), OdomQ.y(), OdomQ.z()};
     localPoseMap[t] = localPose;
+    Eigen::Vector3d gravVec(0.,0.,9.8);
+    Eigen::Vector3d gravB = OdomQ.conjugate() * gravVec;
+    vector<double> gravBody{gravB.x(), gravB.y(), gravB.z(), 0.1};
+    gravMap[t] = gravBody;
 
     //add local odometry to global pose
     Eigen::Quaterniond globalQ;
@@ -197,7 +201,7 @@ void GlobalOptimization::optimize()
                 problem.AddParameterBlock(t_array[i], 3);
             }
 
-            map<double, vector<double>>::iterator iterVIO, iterVIONext, iterGPS, iterDepth, iterDepthLower, iterDepthUpper, iterCompass;
+            map<double, vector<double>>::iterator iterVIO, iterVIONext, iterGPS, iterDepth, iterDepthLower, iterDepthUpper, iterCompass, iterGrav;
             int i = 0;
             int num_depth = 0;
             for (iterVIO = localPoseMap.begin(); iterVIO != localPoseMap.end(); iterVIO++, i++)
@@ -263,9 +267,11 @@ void GlobalOptimization::optimize()
                     if (iterCompass != compassMap.end() && fabs(t - iterCompass->first) < 0.1)
                     {
 			    		//printf("compass input with dt = %f\n",fabs(t - iterCompass->first));
-
+                        iterGrav = gravMap.find(t);
+                        
                         ceres::CostFunction* compass_function = CompassError::Create(iterCompass->second[0], iterCompass->second[1],
-                                                                      iterCompass->second[2], iterCompass->second[3]);
+                                                                      iterCompass->second[2], iterCompass->second[3], iterGrav->second[0],
+                                                                      iterGrav->second[1], iterGrav->second[2], iterGrav->second[3]);
                         problem.AddResidualBlock(compass_function, loss_function, q_array[i]);
 
                     }

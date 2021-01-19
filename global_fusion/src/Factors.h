@@ -62,8 +62,8 @@ struct DepthError
 
 struct CompassError
 {
-        CompassError(double mag_x, double mag_y, double mag_z,double var)
-                                  :mag_x(mag_x), mag_y(mag_y), mag_z(mag_z), var(var){}
+        CompassError(double mag_x, double mag_y, double mag_z,double var, double grav_x,double grav_y,double grav_z,double var_g)
+                                  :mag_x(mag_x), mag_y(mag_y), mag_z(mag_z), var(var), grav_x(grav_x), grav_y(grav_y), grav_z(grav_z),var_g(var_g){}
 
 	    template <typename T>
         bool operator()(const T* w_q_i, T* residuals) const
@@ -71,6 +71,7 @@ struct CompassError
 		    T c_q_w[4];
 			T w_q_c[4];
 			T i_q_c[4];
+            T i_q_w[4];
 
 			i_q_c[0] = T(imu_q_c[0]);
 			i_q_c[1] = T(imu_q_c[1]);
@@ -79,29 +80,41 @@ struct CompassError
 
 			ceres::QuaternionProduct(w_q_i, i_q_c, w_q_c);
             QuaternionInverse(w_q_c, c_q_w);
-						
+		    QuaternionInverse(w_q_i, i_q_w);
+
 		    T mag_c[3];
 			T mag_world[3];
+            T grav_world[3];
+            T grav_i[3];
 			mag_world[0] = T(mag_w[0]);
 			mag_world[1] = T(mag_w[1]);
-			mag_world[2] = T(mag_w[2]); 
+			mag_world[2] = T(mag_w[2]);
+            grav_world[0] = T(0.0);
+            grav_world[1] = T(0.0);
+            grav_world[2] = T(9.8);
+
             ceres::QuaternionRotatePoint(c_q_w, mag_world, mag_c);
+            ceres::QuaternionRotatePoint(i_q_w, grav_world, grav_i);
 
             residuals[0] = (mag_c[0] - T(mag_x)) / T(var);
             residuals[1] = (mag_c[1] - T(mag_y)) / T(var);
             residuals[2] = (mag_c[2] - T(mag_z)) / T(var);
+            residuals[3] = (grav_i[0] - T(grav_x)) / T(var_g);
+            residuals[4] = (grav_i[1] - T(grav_y)) / T(var_g);
+            residuals[5] = (grav_i[2] - T(grav_z)) / T(var_g);
+
 
             return true;
         }
 
-    	static ceres::CostFunction* Create(const double mag_x, const double mag_y, const double mag_z, const double var)
+    	static ceres::CostFunction* Create(const double mag_x, const double mag_y, const double mag_z, const double var, const double grav_x, const double grav_y, const double grav_z, const double var_g)
         {
           return (new ceres::AutoDiffCostFunction<
-                  CompassError, 3, 4>(
-                        new CompassError(mag_x, mag_y, mag_z, var)));
+                  CompassError, 6, 4>(
+                        new CompassError(mag_x, mag_y, mag_z, var, grav_x, grav_y, grav_z, var_g)));
         }
 
-        double mag_x, mag_y, mag_z, var;
+        double mag_x, mag_y, mag_z, var, grav_x, grav_y, grav_z, var_g;
 
 
 };

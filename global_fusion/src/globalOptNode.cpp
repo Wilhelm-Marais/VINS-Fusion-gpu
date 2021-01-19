@@ -81,7 +81,7 @@ void GPS_callback(const sensor_msgs::NavSatFixConstPtr &GPS_msg)
     double longitude = GPS_msg->longitude;
     double altitude = GPS_msg->altitude;
     //int numSats = GPS_msg->status.service;
-    double pos_accuracy[] = {GPS_msg->position_covariance[0],GPS_msg->position_covariance[4],GPS_msg->position_covariance[8]};
+    double pos_accuracy[] = {GPS_msg->position_covariance[0]/100.0,GPS_msg->position_covariance[4]/100.0,GPS_msg->position_covariance[8]/100.0};
     //printf("receive covariance %lf \n", pos_accuracy);
     if(!isnan(GPS_msg->latitude)){
 		globalEstimator.inputGPS(t, latitude, longitude, altitude, pos_accuracy);

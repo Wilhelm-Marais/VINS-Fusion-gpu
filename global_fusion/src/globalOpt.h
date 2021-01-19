@@ -63,7 +63,8 @@ private:
 	map<double, vector<double>> GPSPositionMap;
 	map<double, vector<double>> depthMap;
     map<double, vector<double>> compassMap;
-	double depth;
+	map<double, vector<double>> gravMap;
+    double depth;
 	double p_0;
 	bool initGPS;
 	bool initPress;
